@@ -76,12 +76,13 @@
       <h2>Publish to live site (everyone)</h2>
       <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Save above = draft on this browser only. Publish below = updates <strong>content.json</strong> on GitHub, Vercel redeploys in ~1–2 min, and every visitor sees the change.</p>
       <div class="field">
-        <label>GitHub token (Contents read &amp; write on this repo — kept in this tab only, never saved to the site)</label>
+        <label>GitHub token (saved on this device only, never in the site code — paste once)</label>
         <input type="password" id="ghToken" placeholder="ghp_... or fine-grained token" autocomplete="off" />
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-solid btn-sm" id="publishLive">Publish live</button>
         <button class="btn btn-ghost btn-sm" id="loadLive">Load live content</button>
+        <button class="btn btn-ghost btn-sm" id="forgetToken">Forget token</button>
         <span id="pubMsg" style="font-size:14px;color:var(--gold)"></span>
       </div>
     </div>
@@ -187,7 +188,7 @@
       var FILE = "content.json";
       var pubMsg = document.getElementById("pubMsg");
       var tokenInput = document.getElementById("ghToken");
-      tokenInput.value = sessionStorage.getItem("tiger_gh_token") || "";
+      try { tokenInput.value = localStorage.getItem("tiger_gh_token") || ""; } catch (e) {}
 
       function say(msg, bad) {
         pubMsg.textContent = msg;
@@ -200,7 +201,7 @@
 
       function ghHeaders() {
         var t = tokenInput.value.trim();
-        sessionStorage.setItem("tiger_gh_token", t);
+        try { localStorage.setItem("tiger_gh_token", t); } catch (e) {}
         return { "Accept": "application/vnd.github+json", "Authorization": "Bearer " + t };
       }
 
@@ -253,6 +254,11 @@
       });
       document.getElementById("adminSave").addEventListener("click", saveAll);
       document.getElementById("adminSave2").addEventListener("click", saveAll);
+      document.getElementById("forgetToken").addEventListener("click", function () {
+        try { localStorage.removeItem("tiger_gh_token"); } catch (e) {}
+        tokenInput.value = "";
+        say("Token forgotten on this device.");
+      });
       document.getElementById("adminReset").addEventListener("click", resetAll);
       document.getElementById("adminReset2").addEventListener("click", resetAll);
     })();
