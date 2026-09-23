@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel — Steam Achievement</title>
+  <link rel="icon" type="image/png" href="images/achievement_icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Cairo:wght@400;600;700;900&family=Anton&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .admin-wrap { min-height: 80vh; display: flex; align-items: center; justify-content: center; padding: 60px 0; }
+    .admin-card { width: min(440px, 92%); background: linear-gradient(160deg, #161616, #0d0d0d); border: 1px solid rgba(255,215,0,.25); border-radius: 14px; padding: 34px 30px; box-shadow: 0 20px 50px rgba(0,0,0,.55); text-align: center; }
+    .admin-card h1 { font-size: 24px; text-transform: uppercase; margin-bottom: 8px; }
+    .admin-card p { color: var(--muted); font-size: 14.5px; margin-bottom: 22px; }
+    .admin-input { width: 100%; padding: 13px 15px; border-radius: 8px; border: 1px solid var(--line); background: #0c0c0c; color: var(--text); font-size: 18px; text-align: center; letter-spacing: 6px; outline: none; margin-bottom: 14px; }
+    .admin-input:focus { border-color: var(--gold); }
+    .admin-err { color: #ff6b6b; font-size: 14px; min-height: 22px; margin-bottom: 6px; }
+    .admin-dash { width: min(1000px, 94%); margin: 0 auto; padding: 50px 0 70px; display: none; }
+    .admin-dash.show { display: block; }
+    .admin-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; position: sticky; top: 70px; z-index: 20; background: rgba(10,10,10,.92); backdrop-filter: blur(10px); padding: 14px 0; border-bottom: 1px solid var(--line); }
+    .admin-top h1 { font-size: clamp(20px, 3vw, 28px); text-transform: uppercase; }
+    .admin-top .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .save-msg { color: var(--gold); font-size: 14px; min-height: 20px; }
+    .edit-group { background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .edit-group h2 { font-size: 16px; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 14px; }
+    .field { margin-bottom: 12px; text-align: left; }
+    .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .field input, .field textarea { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: #0c0c0c; color: var(--text); font-size: 14.5px; font-family: "Cairo", sans-serif; outline: none; }
+    .field input:focus, .field textarea:focus { border-color: var(--gold); }
+    .field textarea { min-height: 70px; resize: vertical; }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <header class="navbar">
+    <div class="container nav-wrap">
+      <a href="index.html" class="logo">
+        <span class="logo-icon">
+          <img src="images/achievement_icon.png" alt="Steam Achievement icon" class="logo-img" />
+        </span>
+        <span class="logo-text">Steam<span class="accent">Achievement</span></span>
+      </a>
+      <div class="nav-actions">
+        <a href="index.html" class="btn btn-ghost btn-sm">Back to Site</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Login -->
+  <div class="admin-wrap" id="loginWrap">
+    <div class="admin-card">
+      <h1>Admin <span class="accent">Panel</span></h1>
+      <p>Tiger Team — enter access code to continue</p>
+      <div class="admin-err" id="adminErr"></div>
+      <input type="password" id="adminCode" class="admin-input" placeholder="••••" maxlength="20" autocomplete="off" />
+      <button class="btn btn-solid btn-lg" id="adminLogin" style="width:100%">Login</button>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="admin-dash" id="dashWrap">
+    <div class="admin-top">
+      <h1>Site <span class="accent">Editor</span></h1>
+      <div class="row">
+        <a href="index.html" class="btn btn-ghost btn-sm">View Site</a>
+        <button class="btn btn-ghost btn-sm" id="adminReset">Reset</button>
+        <button class="btn btn-solid btn-sm" id="adminSave">Save All</button>
+        <button class="btn btn-ghost btn-sm" id="adminLogout">Logout</button>
+      </div>
+    </div>
+    <div class="save-msg" id="saveMsg"></div>
+    <div id="editForm"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
+      <button class="btn btn-solid" id="adminSave2">Save All</button>
+      <button class="btn btn-ghost" id="adminReset2">Reset to defaults</button>
+    </div>
+  </div>
+
+  <script src="js/site-config.js"></script>
+  <script>
+    (function () {
+      var CODE = "2007";
+      var loginWrap = document.getElementById("loginWrap");
+      var dashWrap = document.getElementById("dashWrap");
+      var input = document.getElementById("adminCode");
+      var err = document.getElementById("adminErr");
+      var form = document.getElementById("editForm");
+      var saveMsg = document.getElementById("saveMsg");
+      var built = false;
+
+      function showDash() {
+        loginWrap.style.display = "none";
+        dashWrap.classList.add("show");
+        if (!built) { buildForm(); built = true; }
+      }
+      function showLogin() {
+        loginWrap.style.display = "flex";
+        dashWrap.classList.remove("show");
+      }
+
+      if (sessionStorage.getItem("tiger_admin") === "1") showDash();
+
+      function tryLogin() {
+        if (input.value === CODE) {
+          sessionStorage.setItem("tiger_admin", "1");
+          err.textContent = "";
+          showDash();
+        } else {
+          err.textContent = "Wrong code, try again.";
+          input.value = "";
+          input.focus();
+        }
+      }
+
+      function esc(s) {
+        return String(s === undefined || s === null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      }
+
+      function buildForm() {
+        var cfg = window.TigerConfig.all();
+        var groups = {};
+        var order = [];
+        window.TIGER_FIELDS.forEach(function (f) {
+          var g = f[0], key = f[1], label = f[2], type = f[3];
+          if (!groups[g]) { groups[g] = []; order.push(g); }
+          groups[g].push({ key: key, label: label, type: type });
+        });
+        var html = "";
+        order.forEach(function (g) {
+          html += '<div class="edit-group"><h2>' + esc(g) + "</h2>";
+          groups[g].forEach(function (fld) {
+            var val = cfg[fld.key] !== undefined ? cfg[fld.key] : "";
+            if (fld.type === "textarea") {
+              html += '<div class="field"><label>' + esc(fld.label) + " (" + esc(fld.key) + ')</label><textarea data-key="' + esc(fld.key) + '">' + esc(val) + "</textarea></div>";
+            } else {
+              html += '<div class="field"><label>' + esc(fld.label) + " (" + esc(fld.key) + ')</label><input type="' + (fld.type === "url" ? "url" : "text") + '" data-key="' + esc(fld.key) + '" value="' + esc(val) + '" /></div>';
+            }
+          });
+          html += "</div>";
+        });
+        form.innerHTML = html;
+      }
+
+      function collect() {
+        var obj = {};
+        form.querySelectorAll("[data-key]").forEach(function (el) {
+          obj[el.getAttribute("data-key")] = el.value;
+        });
+        return obj;
+      }
+
+      function saveAll() {
+        window.TigerConfig.save(collect());
+        saveMsg.textContent = "Saved — open the site (View Site) to see changes on this browser.";
+        setTimeout(function () { saveMsg.textContent = ""; }, 3500);
+      }
+
+      function resetAll() {
+        if (!confirm("Reset all texts to defaults?")) return;
+        window.TigerConfig.reset();
+        built = false;
+        buildForm(); built = true;
+        saveMsg.textContent = "Reset done.";
+        setTimeout(function () { saveMsg.textContent = ""; }, 3000);
+      }
+
+      document.getElementById("adminLogin").addEventListener("click", tryLogin);
+      input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
+      document.getElementById("adminLogout").addEventListener("click", function () {
+        sessionStorage.removeItem("tiger_admin");
+        showLogin();
+      });
+      document.getElementById("adminSave").addEventListener("click", saveAll);
+      document.getElementById("adminSave2").addEventListener("click", saveAll);
+      document.getElementById("adminReset").addEventListener("click", resetAll);
+      document.getElementById("adminReset2").addEventListener("click", resetAll);
+    })();
+  </script>
+</body>
+</html>
