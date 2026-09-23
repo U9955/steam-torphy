@@ -172,13 +172,38 @@
     } catch (e) { return {}; }
   }
 
-  function getConfig() {
-    var out = {};
-    var over = loadOverrides();
+  function mergeInto(base, extra) {
+    if (!extra || typeof extra !== "object") return base;
     Object.keys(DEFAULTS).forEach(function (k) {
-      out[k] = over[k] !== undefined && over[k] !== "" ? over[k] : DEFAULTS[k];
+      if (extra[k] !== undefined && extra[k] !== "") base[k] = extra[k];
     });
-    return out;
+    return base;
+  }
+
+  function getConfig() {
+    return mergeInto(Object.assign({}, DEFAULTS), loadOverrides());
+  }
+
+  /* Global content published via admin panel (content.json in the repo).
+     Priority: DEFAULTS < content.json (everyone) < localStorage (this browser preview). */
+  var remoteCache = null;
+
+  function applyLive() {
+    applyConfig(mergeInto(mergeInto(Object.assign({}, DEFAULTS), remoteCache), loadOverrides()));
+  }
+
+  function fetchRemote() {
+    try {
+      fetch("content.json", { cache: "no-store" })
+        .then(function (r) { return r && r.ok ? r.json() : null; })
+        .then(function (json) {
+          if (json && typeof json === "object") {
+            remoteCache = json;
+            applyLive();
+          }
+        })
+        .catch(function () {});
+    } catch (e) {}
   }
 
   function saveConfig(obj) {
@@ -217,16 +242,18 @@
   window.TIGER_FIELDS = FIELDS;
   window.TigerConfig = {
     get: getConfig,
-    all: function () { return Object.assign({}, DEFAULTS, loadOverrides()); },
+    all: function () { return mergeInto(mergeInto(Object.assign({}, DEFAULTS), remoteCache), loadOverrides()); },
+    live: function () { return remoteCache ? mergeInto(Object.assign({}, DEFAULTS), remoteCache) : null; },
     save: saveConfig,
     reset: resetConfig,
     apply: applyConfig,
+    refresh: fetchRemote,
     key: STORE_KEY
   };
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { applyConfig(); });
+    document.addEventListener("DOMContentLoaded", function () { applyLive(); fetchRemote(); });
   } else {
-    applyConfig();
+    applyLive(); fetchRemote();
   }
 })();

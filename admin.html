@@ -72,6 +72,19 @@
       </div>
     </div>
     <div class="save-msg" id="saveMsg"></div>
+    <div class="edit-group" style="border-color:rgba(255,215,0,.5)">
+      <h2>Publish to live site (everyone)</h2>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:12px">Save above = draft on this browser only. Publish below = updates <strong>content.json</strong> on GitHub, Vercel redeploys in ~1–2 min, and every visitor sees the change.</p>
+      <div class="field">
+        <label>GitHub token (Contents read &amp; write on this repo — kept in this tab only, never saved to the site)</label>
+        <input type="password" id="ghToken" placeholder="ghp_... or fine-grained token" autocomplete="off" />
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-solid btn-sm" id="publishLive">Publish live</button>
+        <button class="btn btn-ghost btn-sm" id="loadLive">Load live content</button>
+        <span id="pubMsg" style="font-size:14px;color:var(--gold)"></span>
+      </div>
+    </div>
     <div id="editForm"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px">
       <button class="btn btn-solid" id="adminSave2">Save All</button>
@@ -168,6 +181,69 @@
         saveMsg.textContent = "Reset done.";
         setTimeout(function () { saveMsg.textContent = ""; }, 3000);
       }
+
+      /* ---------- Publish to GitHub (live for everyone) ---------- */
+      var REPO = "U9955/steam-torphy";
+      var FILE = "content.json";
+      var pubMsg = document.getElementById("pubMsg");
+      var tokenInput = document.getElementById("ghToken");
+      tokenInput.value = sessionStorage.getItem("tiger_gh_token") || "";
+
+      function say(msg, bad) {
+        pubMsg.textContent = msg;
+        pubMsg.style.color = bad ? "#ff6b6b" : "var(--gold)";
+      }
+
+      function b64encodeUnicode(str) {
+        return btoa(unescape(encodeURIComponent(str)));
+      }
+
+      function ghHeaders() {
+        var t = tokenInput.value.trim();
+        sessionStorage.setItem("tiger_gh_token", t);
+        return { "Accept": "application/vnd.github+json", "Authorization": "Bearer " + t };
+      }
+
+      function fillForm(obj) {
+        form.querySelectorAll("[data-key]").forEach(function (el) {
+          var k = el.getAttribute("data-key");
+          if (obj[k] !== undefined) el.value = obj[k];
+        });
+      }
+
+      document.getElementById("loadLive").addEventListener("click", function () {
+        say("Loading live content...");
+        fetch("content.json", { cache: "no-store" })
+          .then(function (r) { if (!r.ok) throw 0; return r.json(); })
+          .then(function (json) { fillForm(json); say("Live content loaded into the form."); })
+          .catch(function () { say("Could not load live content.", true); });
+      });
+
+      document.getElementById("publishLive").addEventListener("click", function () {
+        var token = tokenInput.value.trim();
+        if (!token) { say("Paste your GitHub token first.", true); tokenInput.focus(); return; }
+        if (!confirm("Publish these texts to the LIVE site for everyone?")) return;
+        say("Publishing...");
+        var url = "https://api.github.com/repos/" + REPO + "/contents/" + FILE;
+        fetch(url, { headers: ghHeaders() })
+          .then(function (r) { if (!r.ok) throw new Error("read " + r.status); return r.json(); })
+          .then(function (meta) {
+            var payload = {
+              message: "Update site content via admin panel",
+              content: b64encodeUnicode(JSON.stringify(collect(), null, 2) + "\n"),
+              sha: meta.sha,
+              branch: "main"
+            };
+            return fetch(url, {
+              method: "PUT",
+              headers: Object.assign({ "Content-Type": "application/json" }, ghHeaders()),
+              body: JSON.stringify(payload)
+            });
+          })
+          .then(function (r) { if (!r.ok) throw new Error("write " + r.status); return r.json(); })
+          .then(function () { say("Published! Vercel redeploys in ~1-2 min, then everyone sees it."); })
+          .catch(function (e) { say("Publish failed (" + (e && e.message) + "). Check token/repo permission.", true); });
+      });
 
       document.getElementById("adminLogin").addEventListener("click", tryLogin);
       input.addEventListener("keydown", function (e) { if (e.key === "Enter") tryLogin(); });
